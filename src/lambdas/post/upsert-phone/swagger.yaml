@@ -1,0 +1,49 @@
+swagger: '2.0'
+info:
+  version: '1.0.0'
+  title: "Gravity Haus Auth Api Documentation"
+host: 57kiuv9e1j.execute-api.us-east-2.amazonaws.com
+basePath: /Prod
+schemes:
+  - https
+securityDefinitions:
+  Bearer:
+    type: apiKey
+    name: Authorization
+    in: header
+    description: Use JWT token starting with Bearer, e.g. Bearer XXXXXXX
+paths:
+  /upsert-phone:
+    post:
+      summary: Upsert Phone
+      description: Adds or updates a phone number for a user.
+      produces:
+        - application/json
+      consumes:
+        - application/json
+      parameters:
+        - name: body
+          in: body
+          description: The request body contains the user's phone number and ID.
+          required: true
+          schema:
+            type: object
+            properties:
+              id:
+                type: string
+                description: The ID of the user whose phone number is being updated or created.
+              phoneNumber:
+                type: string
+                description: The user's phone number.
+              countryCode:
+                type: integer
+                description: The country code for the user's phone number (default is 1).
+      responses:
+        '200':
+          description: OK
+        '401':
+          description: Unauthorized
+        '500':
+          description: Internal Server Error
+      security:
+        - Bearer: []

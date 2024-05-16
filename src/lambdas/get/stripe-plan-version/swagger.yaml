@@ -1,0 +1,68 @@
+swagger: '2.0'
+info:
+  version: '1.0.0'
+  title: Stripe Plan Version API
+basePath: /Prod
+host: 57kiuv9e1j.execute-api.us-east-2.amazonaws.com
+schemes:
+  - https
+paths:
+  /stripe-plan-version:
+    get:
+      summary: Get the latest Stripe Plan Version
+      produces:
+        - application/json
+      parameters:
+        - name: id
+          in: query
+          description: ID of the Stripe Plan Version to retrieve
+          required: false
+          type: integer
+      responses:
+        '200':
+          description: OK
+          schema:
+            type: object
+            properties:
+              stripePlanVersion:
+                type: object
+                properties:
+                  id:
+                    type: integer
+                  active:
+                    type: boolean
+                  stripePlanId:
+                    type: integer
+                  stripePlans:
+                    type: object
+                    properties:
+                      id:
+                        type: integer
+                      name:
+                        type: string
+                      currency:
+                        type: string
+                      interval:
+                        type: string
+                      amount:
+                        type: integer
+                      trialPeriodDays:
+                        type: integer
+                      createdAt:
+                        type: string
+                      updatedAt:
+                        type: string
+                required:
+                  - id
+                  - active
+                  - stripePlanId
+                  - stripePlans
+        '401':
+          $ref: '#/responses/Unauthorized'
+        '500':
+          $ref: '#/responses/InternalServerError'
+responses:
+  Unauthorized:
+    description: Unauthorized
+  InternalServerError:
+    description: Internal Server Error

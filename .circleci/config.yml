@@ -1,0 +1,161 @@
+version: 2.1
+orbs:
+  sam: circleci/aws-sam-serverless@3.2.0
+executors:
+  gh-executor:
+    docker:
+      - image: cimg/node:16.15.1
+        environment:
+          MYSQL_DATABASE: 'gh_develop_db'
+          MYSQL_HOST: 'localhost'
+          MYSQL_PASSWORD: 'password'
+          MYSQL_USER: 'root'
+          CC_TEST_REPORTER_ID: $CC_TEST_REPORTER_ID
+      - image: mysql:5.7
+        environment:
+          MYSQL_DATABASE: 'gh_develop_db'
+          MYSQL_HOST: 'localhost'
+          MYSQL_ROOT_PASSWORD: 'password'
+          MYSQL_PASSWORD: 'password'
+          MYSQL_USER: 'user'
+
+jobs:
+  build:
+    executor: gh-executor
+    steps:
+      - checkout
+      - run: echo "//registry.npmjs.org/:_authToken=$NPM_TOKEN" > ~/.npmrc
+      - run: npm install
+      - run:
+          name: Set Up DB
+          command: |
+            sudo apt-get update
+            sudo apt-get install default-mysql-client
+
+            mysql -h 127.0.0.1 -u root -ppassword --execute="SET GLOBAL sql_mode=(SELECT REPLACE(@@sql_mode,'ONLY_FULL_GROUP_BY',''));"
+            mysql -h 127.0.0.1 -u root -ppassword --execute="SET GLOBAL foreign_key_checks = 0;"
+
+            mysql --host=127.0.0.1 -uroot -ppassword gh_develop_db < ~/project/seeders/schema.sql
+
+            echo "{ \"test\": { \"username\": \"root\", \"password\": \"password\", \"database\": \"gh_develop_db\", \"host\": \"localhost\", \"dialect\": \"mysql\"}}" > ~/project/config/config.json
+            npx sequelize-cli db:migrate --env test
+
+      - run: npm run clean-code
+      # Setup Code Climate
+      - run:
+          name: 'Setup Code Climate Test-Reporter'
+          command: |
+            # download test reporter as a static binary
+            curl -L https://codeclimate.com/downloads/test-reporter/test-reporter-latest-linux-amd64 > ./cc-test-reporter
+            chmod +x ./cc-test-reporter
+      # Run tests
+      - run: ./cc-test-reporter before-build
+      - run: npm run test:ci && ./cc-test-reporter after-build --exit-code $?
+      - store_test_results:
+          path: ~/project/
+      - store_artifacts:
+          path: ~/project/junit.xml
+          destination: ~/tmp/artifacts/junit.xml
+
+  db-migrate:
+    executor: gh-executor
+    steps:
+      - checkout
+      - run: echo "//registry.npmjs.org/:_authToken=$NPM_TOKEN" > ~/.npmrc
+      - run: npm install
+      - run:
+          name: update database config.json
+          command: |
+            echo "{ \"development\": { \"username\": \"${STAGE_MYSQL_USER}\", \"password\": \"${STAGE_MYSQL_PASSWORD}\", \"database\": \"${STAGE_MYSQL_DATABASE}\",\"host\": \"${STAGE_MYSQL_HOST}\",\"dialect\": \"mysql\"}}" > ~/project/config/config.json
+            if [[ "${CIRCLE_BRANCH}" == "main" ]]
+            then
+              echo "{ \"development\": { \"username\": \"${MAIN_MYSQL_USER}\", \"password\": \"${MAIN_MYSQL_PASSWORD}\", \"database\": \"${MAIN_MYSQL_DATABASE}\",\"host\": \"${MAIN_MYSQL_HOST}\",\"dialect\": \"mysql\"}}" > ~/project/config/config.json
+            fi
+
+      - run: npx sequelize-cli db:migrate
+
+workflows:
+  version: 2
+  build-deploy:
+    jobs:
+      - build
+      - db-migrate:
+          requires:
+            - build
+      - sam/deploy:
+          filters:
+            branches:
+              ignore:
+                - stage
+                - main
+          pre-steps:
+            - checkout
+            - run: echo "//registry.npmjs.org/:_authToken=${NPM_TOKEN}" > ~/.npmrc
+            - run: npm i
+            - run: npm run build
+          name: deploy qa faas
+          debug: true
+          use-container: false
+          s3-bucket: gh-lambdas
+          stack-name: ${CIRCLE_BRANCH}-qa-stack
+          template: template.qa.yaml
+          parameter-overrides: ParameterKey=Env,ParameterValue=stage ParameterKey=SecretName,ParameterValue=gh-infra ParameterKey=SlackApiKey,ParameterValue=${SLACK_API_KEY} ParameterKey=JwtSecretKey,ParameterValue=${STAGE_JWT_SECRET_KEY} ParameterKey=MysqlDatabase,ParameterValue=${STAGE_MYSQL_DATABASE} ParameterKey=MysqlHost,ParameterValue=${STAGE_MYSQL_HOST} ParameterKey=MysqlPassword,ParameterValue=${STAGE_MYSQL_PASSWORD} ParameterKey=MysqlUser,ParameterValue=${STAGE_MYSQL_USER}
+
+      - sam/deploy:
+          filters:
+            branches:
+              only:
+                - stage
+          pre-steps:
+            - checkout
+            - run: echo "//registry.npmjs.org/:_authToken=${NPM_TOKEN}" > ~/.npmrc
+            - run: npm i
+            - run: npm run build
+          name: deploy swagger
+          debug: true
+          use-container: false
+          s3-bucket: gh-lambdas
+          stack-name: ${STACK_NAME}-swagger-stack
+          template: swagger/template.swagger.yaml
+
+      - sam/deploy:
+          requires:
+            - db-migrate
+            - build
+          filters:
+            branches:
+              only:
+                - stage
+          pre-steps:
+            - checkout
+            - run: echo "//registry.npmjs.org/:_authToken=${NPM_TOKEN}" > ~/.npmrc
+            - run: npm i
+            - run: npm run build
+          name: deploy stage
+          debug: true
+          use-container: false
+          s3-bucket: gh-lambdas
+          stack-name: ${STACK_NAME}-stage-stack
+          template: template.yaml
+          parameter-overrides: ParameterKey=Env,ParameterValue=stage ParameterKey=SecretName,ParameterValue=gh-infra ParameterKey=SlackApiKey,ParameterValue=${SLACK_API_KEY} ParameterKey=JwtSecretKey,ParameterValue=${STAGE_JWT_SECRET_KEY} ParameterKey=MysqlDatabase,ParameterValue=${STAGE_MYSQL_DATABASE} ParameterKey=MysqlHost,ParameterValue=${STAGE_MYSQL_HOST} ParameterKey=MysqlPassword,ParameterValue=${STAGE_MYSQL_PASSWORD} ParameterKey=MysqlUser,ParameterValue=${STAGE_MYSQL_USER}
+
+      - sam/deploy:
+          requires:
+            - db-migrate
+            - build
+          filters:
+            branches:
+              only:
+                - main
+          pre-steps:
+            - checkout
+            - run: echo "//registry.npmjs.org/:_authToken=${NPM_TOKEN}" > ~/.npmrc
+            - run: npm i
+            - run: npm run build
+          name: deploy prod
+          debug: true
+          use-container: false
+          s3-bucket: gh-lambdas
+          stack-name: ${STACK_NAME}-prod-stack
+          template: template.yaml
+          parameter-overrides: ParameterKey=Env,ParameterValue=prod ParameterKey=SecretName,ParameterValue=gh-infra ParameterKey=SlackApiKey,ParameterValue=${SLACK_API_KEY} ParameterKey=JwtSecretKey,ParameterValue=${MAIN_JWT_SECRET_KEY} ParameterKey=MysqlDatabase,ParameterValue=${MAIN_MYSQL_DATABASE} ParameterKey=MysqlHost,ParameterValue=${MAIN_MYSQL_HOST} ParameterKey=MysqlPassword,ParameterValue=${MAIN_MYSQL_PASSWORD} ParameterKey=MysqlUser,ParameterValue=${MAIN_MYSQL_USER}

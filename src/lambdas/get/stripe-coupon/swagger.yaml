@@ -1,0 +1,29 @@
+swagger: '2.0'
+info:
+  title: My API
+  version: '1.0'
+host: 57kiuv9e1j.execute-api.us-east-2.amazonaws.com
+basePath: /Prod
+schemes:
+  - https
+paths:
+  /stripe-coupon:
+    get:
+      summary: Get a Stripe coupon
+      description: Retrieves a Stripe coupon using its ID
+      produces:
+        - application/json
+      responses:
+        '200':
+          description: OK
+        '400':
+          description: Bad request
+        '404':
+          description: Coupon not found
+      parameters:
+        - name: coupon
+          in: query
+          description: The ID of the Stripe coupon to retrieve
+          required: true
+          type: string
+

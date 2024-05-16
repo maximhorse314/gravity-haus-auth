@@ -1,0 +1,72 @@
+
+swagger: "2.0"
+info:
+  title: "Gravity Haus Api Documentation"
+  version: "1.0.0"
+host: 57kiuv9e1j.execute-api.us-east-2.amazonaws.com
+basePath: /Prod
+schemes:
+  - https
+securityDefinitions:
+  Bearer:
+    type: apiKey
+    name: Authorization
+    in: header
+    description: JWT authorization token in the format "Bearer <token>"
+paths:
+  /usage-summary:
+    get:
+      parameters:
+        - in: header
+          name: Authorization
+          required: true
+          type: string
+          description: JWT authorization token in the format "Bearer <token>"
+        - name: id
+          in: query
+          description: The ID of the User
+          required: true
+          type: string
+      responses:
+        '200':
+          description: OK
+          schema:
+            type: object
+            properties:
+              user:
+                type: object
+                properties:
+                  rentalBookings:
+                    type: array
+                    items:
+                      type: object
+                  gymBookings:
+                        type: array
+                        items:
+                          type: object
+                  events:
+                        type: array
+                        items:
+                          type: object
+                  eventBookings:
+                        type: array
+                        items:
+                          type: object
+                  hausReservations:
+                        type: array
+                        items:
+                          type: object
+        '401':
+          description: Unauthorized
+          schema:
+            type: object
+            properties:
+              message:
+                type: string
+        '500':
+          description: Internal Server Error
+          schema:
+            type: object
+            properties:
+              error:
+                type: string

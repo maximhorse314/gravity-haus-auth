@@ -1,0 +1,110 @@
+swagger: '2.0'
+info:
+  title: "Gravity Haus Auth Api Documentation"
+  version: '1.0.0'
+host: 57kiuv9e1j.execute-api.us-east-2.amazonaws.com
+basePath: /Prod
+schemes:
+  - https
+consumes:
+  - application/json
+produces:
+  - application/json
+securityDefinitions:
+  bearerAuth:
+    type: apiKey
+    name: Authorization
+    in: header
+    description: Use a bearer token to authenticate
+paths:
+  /upsert-address:
+    post:
+      summary: Upsert a user's address
+      description: Upserts a user's address in the database
+      parameters:
+        - name: body
+          in: body
+          required: true
+          schema:
+            type: object
+            properties:
+              id:
+                type: string
+                description: The ID of the user whose address is being updated
+              address1:
+                type: string
+                description: The first line of the user's address
+              address2:
+                type: string
+                description: The second line of the user's address
+              address3:
+                type: string
+                description: The third line of the user's address
+              address4:
+                type: string
+                description: The fourth line of the user's address
+              city:
+                type: string
+                description: The city of the user's address
+              county:
+                type: string
+                description: The county of the user's address
+              state:
+                type: string
+                description: The state of the user's address
+              postalCode:
+                type: string
+                description: The postal code of the user's address
+              country:
+                type: string
+                description: The country of the user's address
+            required:
+              - id
+              - address1
+              - city
+              - state
+              - postalCode
+              - country
+      responses:
+        '200':
+          description: Address successfully upserted
+          schema:
+            type: object
+            properties:
+              address:
+                type: object
+                properties:
+                  id:
+                    type: string
+                    description: The ID of the user's address
+                  address1:
+                    type: string
+                    description: The first line of the user's address
+                  address2:
+                    type: string
+                    description: The second line of the user's address
+                  address3:
+                    type: string
+                    description: The third line of the user's address
+                  address4:
+                    type: string
+                    description: The fourth line of the user's address
+                  city:
+                    type: string
+                    description: The city of the user's address
+                  county:
+                    type: string
+                    description: The county of the user's address
+                  state:
+                    type: string
+                    description: The state of the user's address
+                  postalCode:
+                    type: string
+                    description: The postal code of the user's address
+                  country:
+                    type: string
+                    description: The country of the user's address
+        '401':
+          description: Unauthorized
+        '500':
+          description: Internal Server Error

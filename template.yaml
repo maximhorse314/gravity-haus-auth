@@ -1,0 +1,851 @@
+# https://github.com/awslabs/serverless-application-model/blob/develop/versions/2016-10-31.md
+AWSTemplateFormatVersion: '2010-09-09'
+Transform: AWS::Serverless-2016-10-31
+Description: Gravity Haus FAAS
+Parameters:
+    JwtSecretKey:
+        Description: 'Key to encode jwt'
+        Type: 'String'
+    MysqlDatabase:
+        Description: 'Name of mysql database'
+        Type: 'String'
+    MysqlHost:
+        Description: 'mysql host'
+        Type: 'String'
+    MysqlPassword:
+        Description: 'mysql password'
+        Type: 'String'
+    MysqlUser:
+        Description: 'mysql user'
+        Type: 'String'
+    MysqlPort:
+        Description: 'port for database'
+        Default: '3305'
+        Type: 'String'
+    Env:
+        Description: 'The env to run the stack in. "dev" "stage" "prod" | gh-auth/<Env>'
+        Default: 'dev'
+        Type: 'String'
+    SecretName:
+        Description: 'The name of the secret in aws secrets manager <SecretName>/dev'
+        Default: 'gh-auth'
+        Type: 'String'
+    SlackApiKey:
+        Description: 'Api key to the slack account'
+        Type: 'String'
+
+Globals:
+  Api:
+    Cors:
+      AllowMethods: "'*'"
+      AllowHeaders: "'Content-Type, X-Amz-Date, Authorization, X-Api-Key, x-requested-with'"
+      AllowOrigin: "'*'"
+  Function:
+    Timeout: 600
+    MemorySize: 512
+    Layers:
+      - !Ref RuntimeDependenciesLayer
+    Environment: 
+        Variables:
+            JWT_SECRET_KEY: !Ref JwtSecretKey
+            MYSQL_DATABASE: !Ref MysqlDatabase
+            MYSQL_HOST: !Ref MysqlHost
+            MYSQL_PASSWORD: !Ref MysqlPassword
+            MYSQL_USER: !Ref MysqlUser
+            MYSQL_PORT: !Ref MysqlPort
+            ENV: !Ref Env
+            SECRET_NAME: !Ref SecretName
+            SLACK_API_KEY: !Ref SlackApiKey
+
+Resources:
+  RuntimeDependenciesLayer:
+    Type: AWS::Serverless::LayerVersion
+    Metadata:
+      BuildMethod: makefile
+    Properties:
+      Description: Runtime dependencies for Lambdas
+      ContentUri: dist/
+      CompatibleRuntimes:
+        - nodejs16.x
+      RetentionPolicy: Retain
+
+  FunctionLayer:
+    Type: AWS::Serverless::LayerVersion
+    Metadata:
+      BuildMethod: makefile
+    Properties:
+      Description: Common layer
+      ContentUri: dist/
+      CompatibleRuntimes:
+        - nodejs16.x
+      RetentionPolicy: Retain
+
+  FaasFunction:
+    Type: AWS::Serverless::Function # More info about Function Resource: https://github.com/awslabs/serverless-application-model/blob/master/versions/2016-10-31.md#awsserverlessfunction
+    Metadata:
+      BuildMethod: makefile
+    Properties:
+      MemorySize: 2560
+      CodeUri: dist/
+      Handler: dist/lambdas/faas/faas.lambdaHandler
+      Runtime: nodejs16.x
+      Policies:
+        - AWSSecretsManagerGetSecretValuePolicy:
+            SecretArn: "*"
+        - SNSPublishMessagePolicy:
+            TopicName: "*"
+      Layers:
+        - !Ref FunctionLayer
+      Architectures:
+        - x86_64
+      Events:
+        Base:
+          Type: Api # More info about API Event Source: https://github.com/awslabs/serverless-application-model/blob/master/versions/2016-10-31.md#api
+          Properties:
+            Path: /faas/
+            Method: any
+        Others:
+          Type: Api
+          Properties:
+            Method: any
+            Path: /faas/{proxy+}
+
+  LoginFunction:
+    Type: AWS::Serverless::Function
+    Properties:
+      CodeUri: ./
+      Handler: login.default
+      Runtime: nodejs16.x
+      Policies:
+        - AWSSecretsManagerGetSecretValuePolicy:
+            SecretArn: "*"
+      Architectures:
+        - x86_64
+      Events:
+        Base:
+          Type: Api
+          Properties:
+            Path: /login
+            Method: post
+    Metadata: # Manage esbuild properties
+      BuildMethod: esbuild
+      BuildProperties:
+        Minify: true
+        Target: "es2020"
+        Sourcemap: true
+        EntryPoints: 
+        - src/lambdas/post/login/login.ts
+
+  CancelMembershipFunction:
+    Type: AWS::Serverless::Function
+    Properties:
+      CodeUri: ./
+      Handler: cancel-membership.default
+      Runtime: nodejs16.x
+      Policies:
+        - AWSSecretsManagerGetSecretValuePolicy:
+            SecretArn: "*"
+      Architectures:
+        - x86_64
+      Events:
+        Base:
+          Type: Api
+          Properties:
+            Path: /cancel-membership
+            Method: post
+    Metadata: # Manage esbuild properties
+      BuildMethod: esbuild
+      BuildProperties:
+        Minify: true
+        Target: "es2020"
+        Sourcemap: true
+        EntryPoints: 
+        - src/lambdas/post/cancel-membership/cancel-membership.ts
+
+  PostCreateTermsAndConditionsFunction:
+    Type: AWS::Serverless::Function
+    Properties:
+      CodeUri: ./
+      Handler: create-terms-and-conditions.default
+      Runtime: nodejs16.x
+      Policies:
+        - AWSSecretsManagerGetSecretValuePolicy:
+            SecretArn: "*"
+      Architectures:
+        - x86_64
+      Events:
+        Base:
+          Type: Api
+          Properties:
+            Path: /create-terms-and-conditions
+            Method: post
+    Metadata: # Manage esbuild properties
+      BuildMethod: esbuild
+      BuildProperties:
+        Minify: true
+        Target: "es2020"
+        Sourcemap: true
+        EntryPoints: 
+        - src/lambdas/post/create-terms-and-conditions/create-terms-and-conditions.ts
+
+  PostProspectTrackerFunction:
+    Type: AWS::Serverless::Function
+    Properties:
+      CodeUri: ./
+      Handler: prospect-tracker.default
+      Runtime: nodejs16.x
+      Policies:
+        - AWSSecretsManagerGetSecretValuePolicy:
+            SecretArn: "*"
+      Architectures:
+        - x86_64
+      Events:
+        Base:
+          Type: Api
+          Properties:
+            Path: /prospect-tracker
+            Method: post
+    Metadata: # Manage esbuild properties
+      BuildMethod: esbuild
+      BuildProperties:
+        Minify: true
+        Target: "es2020"
+        Sourcemap: true
+        EntryPoints: 
+        - src/lambdas/post/prospect-tracker/prospect-tracker.ts
+
+  PostCreateAccountFunction:
+    Type: AWS::Serverless::Function
+    Properties:
+      CodeUri: ./
+      Handler: create-account.default
+      Runtime: nodejs16.x
+      Policies:
+        - AWSSecretsManagerGetSecretValuePolicy:
+            SecretArn: "*"
+        - SNSPublishMessagePolicy:
+            TopicName: "*"
+      Architectures:
+        - x86_64
+      Events:
+        Base:
+          Type: Api
+          Properties:
+            Path: /create-account
+            Method: post
+    Metadata: # Manage esbuild properties
+      BuildMethod: esbuild
+      BuildProperties:
+        Minify: true
+        Target: "es2020"
+        Sourcemap: true
+        EntryPoints: 
+        - src/lambdas/post/create-account/create-account.ts
+
+  GetStripeCouponFunction:
+    Type: AWS::Serverless::Function
+    Properties:
+      CodeUri: ./
+      Handler: stripe-coupon.default
+      Runtime: nodejs16.x
+      Policies:
+        - AWSSecretsManagerGetSecretValuePolicy:
+            SecretArn: "*"
+        - SNSPublishMessagePolicy:
+            TopicName: "*"
+      Architectures:
+        - x86_64
+      Events:
+        Base:
+          Type: Api
+          Properties:
+            Path: /stripe-coupon
+            Method: get
+    Metadata: # Manage esbuild properties
+      BuildMethod: esbuild
+      BuildProperties:
+        Minify: true
+        Target: "es2020"
+        Sourcemap: true
+        EntryPoints: 
+        - src/lambdas/get/stripe-coupon/stripe-coupon.ts
+
+  GetStripePlanVersionFunction:
+    Type: AWS::Serverless::Function
+    Properties:
+      CodeUri: ./
+      Handler: stripe-plan-version.default
+      Runtime: nodejs16.x
+      Policies:
+        - AWSSecretsManagerGetSecretValuePolicy:
+            SecretArn: "*"
+        - SNSPublishMessagePolicy:
+            TopicName: "*"
+      Architectures:
+        - x86_64
+      Events:
+        Base:
+          Type: Api
+          Properties:
+            Path: /stripe-plan-version
+            Method: get
+    Metadata: # Manage esbuild properties
+      BuildMethod: esbuild
+      BuildProperties:
+        Minify: true
+        Target: "es2020"
+        Sourcemap: true
+        EntryPoints: 
+        - src/lambdas/get/stripe-plan-version/stripe-plan-version.ts
+
+  CaReferralPolicy:
+    Type: AWS::SQS::QueuePolicy
+    Properties: 
+      Queues:
+        - !Ref CaReferralSqs
+      PolicyDocument: 
+        Version: '2012-10-17'
+        Statement:
+          - Sid: !Sub 'allow-sns-messages-${AWS::StackName}'
+            Effect: Allow
+            Principal: '*'
+            Resource: !GetAtt CaReferralSqs.Arn
+            Action: sqs:SendMessage
+            Condition: 
+              ArnEquals:
+                aws:SourceArn: !Ref CaReferralSns
+
+  CaReferralSns:
+    Type: AWS::SNS::Topic
+    Properties:
+      TopicName: !Sub "CaReferral-${AWS::StackName}"
+      Subscription:
+        - Protocol: sqs
+          Endpoint: !GetAtt CaReferralSqs.Arn
+      Tags:
+        - Key: Name
+          Value: !Sub "CaReferral-${AWS::StackName}"
+
+  CaReferralSqs:
+    Type: AWS::SQS::Queue
+    Properties:
+      VisibilityTimeout: 500
+      QueueName: !Sub "CaReferral-${AWS::StackName}"
+      Tags:
+        - Key: Name
+          Value: !Sub "CaReferral-${AWS::StackName}"
+
+  CaReferralTrigger:
+    Type: AWS::Serverless::Function
+    Properties:
+      CodeUri: ./
+      Handler: ca-referral.default
+      Description: example
+      Runtime: nodejs16.x
+      Policies:
+        - AWSSecretsManagerGetSecretValuePolicy:
+            SecretArn: "*"
+        - SNSPublishMessagePolicy:
+            TopicName: "*"
+      Architectures:
+        - x86_64
+      Events:
+        SqsTrigger:
+          Type: SQS
+          Properties:
+            BatchSize: 1
+            Queue: !GetAtt CaReferralSqs.Arn
+      MemorySize: 512
+      Timeout: 500
+    Metadata: # Manage esbuild properties
+      BuildMethod: esbuild
+      BuildProperties:
+        Minify: true
+        Target: "es2020"
+        Sourcemap: true
+        EntryPoints: 
+        - src/sqs/ca-referral/ca-referral.ts
+
+  CaParticipantsPolicy:
+    Type: AWS::SQS::QueuePolicy
+    Properties: 
+      Queues:
+        - !Ref CaParticipantsSqs
+      PolicyDocument: 
+        Version: '2012-10-17'
+        Statement:
+          - Sid: !Sub 'allow-sns-messages-${AWS::StackName}'
+            Effect: Allow
+            Principal: '*'
+            Resource: !GetAtt CaParticipantsSqs.Arn
+            Action: sqs:SendMessage
+            Condition: 
+              ArnEquals:
+                aws:SourceArn: !Ref CaParticipantsSns
+
+  CaParticipantsSns:
+    Type: AWS::SNS::Topic
+    Properties:
+      TopicName: !Sub "CaParticipants-${AWS::StackName}"
+      Subscription:
+        - Protocol: sqs
+          Endpoint: !GetAtt CaParticipantsSqs.Arn
+      Tags:
+        - Key: Name
+          Value: !Sub "CaParticipants-${AWS::StackName}"
+
+  CaParticipantsSqs:
+    Type: AWS::SQS::Queue
+    Properties:
+      VisibilityTimeout: 500
+      QueueName: !Sub "CaParticipants-${AWS::StackName}"
+      Tags:
+        - Key: Name
+          Value: !Sub "CaParticipants-${AWS::StackName}"
+
+  CaParticipantsTrigger:
+    Type: AWS::Serverless::Function
+    Properties:
+      CodeUri: ./
+      Handler: ca-participants.default
+      Description: example
+      Runtime: nodejs16.x
+      Policies:
+        - AWSSecretsManagerGetSecretValuePolicy:
+            SecretArn: "*"
+        - SNSPublishMessagePolicy:
+            TopicName: "*"
+      Architectures:
+        - x86_64
+      Events:
+        SqsTrigger:
+          Type: SQS
+          Properties:
+            BatchSize: 1
+            Queue: !GetAtt CaParticipantsSqs.Arn
+      MemorySize: 512
+      Timeout: 500
+    Metadata: # Manage esbuild properties
+      BuildMethod: esbuild
+      BuildProperties:
+        Minify: true
+        Target: "es2020"
+        Sourcemap: true
+        EntryPoints: 
+        - src/sqs/ca-participants/ca-participants.ts
+
+  CaHubspotPolicy:
+    Type: AWS::SQS::QueuePolicy
+    Properties: 
+      Queues:
+        - !Ref CaHubspotSqs
+      PolicyDocument: 
+        Version: '2012-10-17'
+        Statement:
+          - Sid: !Sub 'allow-sns-messages-${AWS::StackName}'
+            Effect: Allow
+            Principal: '*'
+            Resource: !GetAtt CaHubspotSqs.Arn
+            Action: sqs:SendMessage
+            Condition: 
+              ArnEquals:
+                aws:SourceArn: !Ref CaHubspotSns
+
+  CaHubspotSns:
+    Type: AWS::SNS::Topic
+    Properties:
+      TopicName: !Sub "CaHubspot-${AWS::StackName}"
+      Subscription:
+        - Protocol: sqs
+          Endpoint: !GetAtt CaHubspotSqs.Arn
+      Tags:
+        - Key: Name
+          Value: !Sub "CaHubspot-${AWS::StackName}"
+
+  CaHubspotSqs:
+    Type: AWS::SQS::Queue
+    Properties:
+      VisibilityTimeout: 500
+      QueueName: !Sub "CaHubspot-${AWS::StackName}"
+      Tags:
+        - Key: Name
+          Value: !Sub "CaHubspot-${AWS::StackName}"
+
+  CaHubspotTrigger:
+    Type: AWS::Serverless::Function
+    Properties:
+      CodeUri: ./
+      Handler: ca-hubspot.default
+      Description: example
+      Runtime: nodejs16.x
+      Policies:
+        - AWSSecretsManagerGetSecretValuePolicy:
+            SecretArn: "*"
+        - SNSPublishMessagePolicy:
+            TopicName: "*"
+      Architectures:
+        - x86_64
+      Events:
+        SqsTrigger:
+          Type: SQS
+          Properties:
+            BatchSize: 1
+            Queue: !GetAtt CaHubspotSqs.Arn
+      MemorySize: 512
+      Timeout: 500
+    Metadata: # Manage esbuild properties
+      BuildMethod: esbuild
+      BuildProperties:
+        Minify: true
+        Target: "es2020"
+        Sourcemap: true
+        EntryPoints: 
+        - src/sqs/ca-hubspot/ca-hubspot.ts
+
+  CaParticipantPolicy:
+    Type: AWS::SQS::QueuePolicy
+    Properties: 
+      Queues:
+        - !Ref CaParticipantSqs
+      PolicyDocument: 
+        Version: '2012-10-17'
+        Statement:
+          - Sid: !Sub 'allow-sns-messages-${AWS::StackName}'
+            Effect: Allow
+            Principal: '*'
+            Resource: !GetAtt CaParticipantSqs.Arn
+            Action: sqs:SendMessage
+            Condition: 
+              ArnEquals:
+                aws:SourceArn: !Ref CaParticipantSns
+
+  CaParticipantSns:
+    Type: AWS::SNS::Topic
+    Properties:
+      TopicName: !Sub "CaParticipant-${AWS::StackName}"
+      Subscription:
+        - Protocol: sqs
+          Endpoint: !GetAtt CaParticipantSqs.Arn
+      Tags:
+        - Key: Name
+          Value: !Sub "CaParticipant-${AWS::StackName}"
+
+  CaParticipantSqs:
+    Type: AWS::SQS::Queue
+    Properties:
+      VisibilityTimeout: 500
+      QueueName: !Sub "CaParticipant-${AWS::StackName}"
+      Tags:
+        - Key: Name
+          Value: !Sub "CaParticipant-${AWS::StackName}"
+
+  CaParticipantTrigger:
+    Type: AWS::Serverless::Function
+    Properties:
+      CodeUri: ./
+      Handler: ca-participant.default
+      Description: example
+      Runtime: nodejs16.x
+      Policies:
+        - AWSSecretsManagerGetSecretValuePolicy:
+            SecretArn: "*"
+        - SNSPublishMessagePolicy:
+            TopicName: "*"
+      Architectures:
+        - x86_64
+      Events:
+        SqsTrigger:
+          Type: SQS
+          Properties:
+            BatchSize: 1
+            Queue: !GetAtt CaParticipantSqs.Arn
+      MemorySize: 512
+      Timeout: 500
+    Metadata: # Manage esbuild properties
+      BuildMethod: esbuild
+      BuildProperties:
+        Minify: true
+        Target: "es2020"
+        Sourcemap: true
+        EntryPoints: 
+        - src/sqs/ca-participant/ca-participant.ts
+
+  PostChangeMembershipFunction:
+    Type: AWS::Serverless::Function
+    Properties:
+      CodeUri: ./
+      Handler: change-membership.default
+      Runtime: nodejs16.x
+      Policies:
+        - AWSSecretsManagerGetSecretValuePolicy:
+            SecretArn: "*"
+        - SNSPublishMessagePolicy:
+            TopicName: "*"
+      Architectures:
+        - x86_64
+      Events:
+        Base:
+          Type: Api
+          Properties:
+            Path: /change-membership
+            Method: post
+    Metadata: # Manage esbuild properties
+      BuildMethod: esbuild
+      BuildProperties:
+        Minify: true
+        Target: "es2020"
+        Sourcemap: true
+        EntryPoints: 
+        - src/lambdas/post/change-membership/change-membership.ts
+
+  PostAdminLoginFunction:
+    Type: AWS::Serverless::Function
+    Properties:
+      CodeUri: ./
+      Handler: admin-login.default
+      Runtime: nodejs16.x
+      Policies:
+        - AWSSecretsManagerGetSecretValuePolicy:
+            SecretArn: "*"
+        - SNSPublishMessagePolicy:
+            TopicName: "*"
+      Architectures:
+        - x86_64
+      Events:
+        Base:
+          Type: Api
+          Properties:
+            Path: /admin-login
+            Method: post
+    Metadata: # Manage esbuild properties
+      BuildMethod: esbuild
+      BuildProperties:
+        Minify: true
+        Target: "es2020"
+        Sourcemap: true
+        EntryPoints: 
+        - src/lambdas/post/admin-login/admin-login.ts
+
+  PostDashboardUsersFunction:
+    Type: AWS::Serverless::Function
+    Properties:
+      CodeUri: ./
+      Handler: dashboard-users.default
+      Runtime: nodejs16.x
+      Policies:
+        - AWSSecretsManagerGetSecretValuePolicy:
+            SecretArn: "*"
+        - SNSPublishMessagePolicy:
+            TopicName: "*"
+      Architectures:
+        - x86_64
+      Events:
+        Base:
+          Type: Api
+          Properties:
+            Path: /dashboard-users
+            Method: get
+    Metadata: # Manage esbuild properties
+      BuildMethod: esbuild
+      BuildProperties:
+        Minify: true
+        Target: "es2020"
+        Sourcemap: true
+        EntryPoints: 
+        - src/lambdas/get/dashboard-users/dashboard-users.ts
+
+  PostUpsertPhoneFunction:
+    Type: AWS::Serverless::Function
+    Properties:
+      CodeUri: ./
+      Handler: upsert-phone.default
+      Runtime: nodejs16.x
+      Policies:
+        - AWSSecretsManagerGetSecretValuePolicy:
+            SecretArn: "*"
+        - SNSPublishMessagePolicy:
+            TopicName: "*"
+      Architectures:
+        - x86_64
+      Events:
+        Base:
+          Type: Api
+          Properties:
+            Path: /upsert-phone
+            Method: post
+    Metadata: # Manage esbuild properties
+      BuildMethod: esbuild
+      BuildProperties:
+        Minify: true
+        Target: "es2020"
+        Sourcemap: true
+        EntryPoints: 
+        - src/lambdas/post/upsert-phone/upsert-phone.ts
+
+  PostUpsertAccountFunction:
+    Type: AWS::Serverless::Function
+    Properties:
+      CodeUri: ./
+      Handler: upsert-account.default
+      Runtime: nodejs16.x
+      Policies:
+        - AWSSecretsManagerGetSecretValuePolicy:
+            SecretArn: "*"
+        - SNSPublishMessagePolicy:
+            TopicName: "*"
+      Architectures:
+        - x86_64
+      Events:
+        Base:
+          Type: Api
+          Properties:
+            Path: /upsert-account
+            Method: post
+    Metadata: # Manage esbuild properties
+      BuildMethod: esbuild
+      BuildProperties:
+        Minify: true
+        Target: "es2020"
+        Sourcemap: true
+        EntryPoints: 
+        - src/lambdas/post/upsert-account/upsert-account.ts
+
+  PostUpsertAddressFunction:
+    Type: AWS::Serverless::Function
+    Properties:
+      CodeUri: ./
+      Handler: upsert-address.default
+      Runtime: nodejs16.x
+      Policies:
+        - AWSSecretsManagerGetSecretValuePolicy:
+            SecretArn: "*"
+        - SNSPublishMessagePolicy:
+            TopicName: "*"
+      Architectures:
+        - x86_64
+      Events:
+        Base:
+          Type: Api
+          Properties:
+            Path: /upsert-address
+            Method: post
+    Metadata: # Manage esbuild properties
+      BuildMethod: esbuild
+      BuildProperties:
+        Minify: true
+        Target: "es2020"
+        Sourcemap: true
+        EntryPoints: 
+        - src/lambdas/post/upsert-address/upsert-address.ts
+
+  PostUpsertUserFunction:
+    Type: AWS::Serverless::Function
+    Properties:
+      CodeUri: ./
+      Handler: upsert-user.default
+      Runtime: nodejs16.x
+      Policies:
+        - AWSSecretsManagerGetSecretValuePolicy:
+            SecretArn: "*"
+        - SNSPublishMessagePolicy:
+            TopicName: "*"
+      Architectures:
+        - x86_64
+      Events:
+        Base:
+          Type: Api
+          Properties:
+            Path: /upsert-user
+            Method: post
+    Metadata: # Manage esbuild properties
+      BuildMethod: esbuild
+      BuildProperties:
+        Minify: true
+        Target: "es2020"
+        Sourcemap: true
+        EntryPoints: 
+        - src/lambdas/post/upsert-user/upsert-user.ts
+
+  PostAddFamilyMemberFunction:
+    Type: AWS::Serverless::Function
+    Properties:
+      CodeUri: ./
+      Handler: add-family-member.default
+      Runtime: nodejs16.x
+      Policies:
+        - AWSSecretsManagerGetSecretValuePolicy:
+            SecretArn: "*"
+        - SNSPublishMessagePolicy:
+            TopicName: "*"
+      Architectures:
+        - x86_64
+      Events:
+        Base:
+          Type: Api
+          Properties:
+            Path: /add-family-member
+            Method: post
+    Metadata: # Manage esbuild properties
+      BuildMethod: esbuild
+      BuildProperties:
+        Minify: true
+        Target: "es2020"
+        Sourcemap: true
+        EntryPoints: 
+        - src/lambdas/post/add-family-member/add-family-member.ts
+
+  PostRemoveFamilyMemberFunction:
+    Type: AWS::Serverless::Function
+    Properties:
+      CodeUri: ./
+      Handler: remove-family-member.default
+      Runtime: nodejs16.x
+      Policies:
+        - AWSSecretsManagerGetSecretValuePolicy:
+            SecretArn: "*"
+        - SNSPublishMessagePolicy:
+            TopicName: "*"
+      Architectures:
+        - x86_64
+      Events:
+        Base:
+          Type: Api
+          Properties:
+            Path: /remove-family-member
+            Method: post
+    Metadata: # Manage esbuild properties
+      BuildMethod: esbuild
+      BuildProperties:
+        Minify: true
+        Target: "es2020"
+        Sourcemap: true
+        EntryPoints: 
+        - src/lambdas/post/remove-family-member/remove-family-member.ts
+
+  GetUsageSummaryFunction:
+    Type: AWS::Serverless::Function
+    Properties:
+      CodeUri: ./
+      Handler: usage-summary.default
+      Runtime: nodejs16.x
+      Policies:
+        - AWSSecretsManagerGetSecretValuePolicy:
+            SecretArn: "*"
+        - SNSPublishMessagePolicy:
+            TopicName: "*"
+      Architectures:
+        - x86_64
+      Events:
+        Base:
+          Type: Api
+          Properties:
+            Path: /usage-summary
+            Method: get
+    Metadata: # Manage esbuild properties
+      BuildMethod: esbuild
+      BuildProperties:
+        Minify: true
+        Target: "es2020"
+        Sourcemap: true
+        EntryPoints: 
+        - src/lambdas/get/usage-summary/usage-summary.ts

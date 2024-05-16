@@ -1,0 +1,49 @@
+# https://github.com/awslabs/serverless-application-model/blob/develop/versions/2016-10-31.md
+AWSTemplateFormatVersion: '2010-09-09'
+Transform: AWS::Serverless-2016-10-31
+Description: Gravity Haus Swagger lambda
+
+Globals:
+  Function:
+    Layers:
+      - !Ref RuntimeDependenciesLayer
+
+Resources:
+  RuntimeDependenciesLayer:
+    Type: AWS::Serverless::LayerVersion
+    Metadata:
+      BuildMethod: makefile
+    Properties:
+      Description: Runtime dependencies for Lambdas
+      ContentUri: .
+      CompatibleRuntimes:
+        - nodejs16.x
+      RetentionPolicy: Retain
+
+  # Lambdas
+  SwaggerFunction:
+    Type: AWS::Serverless::Function
+    Properties:
+      Handler: swagger.swagger
+      Runtime: nodejs16.x
+      FunctionName: !Sub "${AWS::StackName}-swagger"
+      CodeUri: .
+      Events:
+        GetHtml:
+          Type: Api
+          Properties:
+            Path: /swagger
+            Method: get
+            RestApiId: !Ref "ServerlessApi"
+        GetSpec:
+          Type: Api
+          Properties:
+            Path: /swagger.json
+            Method: get
+            RestApiId: !Ref "ServerlessApi"
+
+  # Api gateway
+  ServerlessApi:
+    Type: "AWS::Serverless::Api"
+    Properties:
+      StageName: 'Prod'

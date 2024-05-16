@@ -1,0 +1,67 @@
+swagger: '2.0'
+info:
+  title: "Gravity Haus Auth Api Documentation"
+  version: '1.0.0'
+host: 57kiuv9e1j.execute-api.us-east-2.amazonaws.com
+basePath: /Prod
+schemes:
+  - https
+produces:
+  - application/json
+securityDefinitions:
+  jwt:
+    type: apiKey
+    name: Authorization
+    in: header
+paths:
+  /change-membership:
+    post:
+      security:
+        - jwt: []
+      tags:
+        - Membership
+      summary: Change a membership plan
+      description: This endpoint allows an account owner to change their membership plan.
+      parameters:
+        - name: body
+          in: body
+          description: JSON object containing the required parameters to update the membership plan
+          required: true
+          schema:
+            type: object
+            properties:
+              email:
+                type: string
+                description: The email of the account owner
+                default: 'test@test.com'
+              planId:
+                type: string
+                description: The new membership plan ID
+              c1:
+                type: boolean
+                description: Optional string used to identify the coupon code used
+                default: false
+              coupon:
+                type: string
+                description: Optional coupon code to apply to the subscription
+                default: 'test'
+              userId:
+                type: string
+                description: The user ID of the account owner
+      responses:
+        200:
+          description: Success. The account holder User object is returned.
+          schema:
+            type: object
+            properties:
+              accountHolder:
+                type: object
+                description: The updated account holder object
+        400:
+          description: Bad request. Only the account owner can change a membership.
+        401:
+          description: Unauthorized. JWT token is missing or invalid.
+        404:
+          description: Invalid coupon. The coupon code is invalid or expired.
+        500:
+          description: Internal server error. An unexpected error occurred while processing the request.

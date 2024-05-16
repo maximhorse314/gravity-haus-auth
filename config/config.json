@@ -1,0 +1,18 @@
+{
+  "test": {
+    "username": "root",
+    "password": "password",
+    "database": "gh_develop_test",
+    "host": "localhost",
+    "dialect": "mysql",
+    "port": 3305
+  },
+  "development": {
+    "username": "root",
+    "password": "password",
+    "database": "gh_develop_db",
+    "host": "localhost",
+    "dialect": "mysql",
+    "port": 3305
+  }
+}

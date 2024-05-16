@@ -1,0 +1,71 @@
+swagger: '2.0'
+info:
+  version: '1.0.0'
+  title: "Gravity Haus Auth Api Documentation"
+host: 57kiuv9e1j.execute-api.us-east-2.amazonaws.com
+basePath: /Prod
+schemes:
+  - https
+securityDefinitions:
+  Bearer:
+    type: apiKey
+    name: Authorization
+    in: header
+    description: JWT authorization token in the format "Bearer <token>"
+paths:
+  /add-family-member:
+    post:
+      summary: Add a family member to an account
+      produces:
+        - application/json
+      parameters:
+        - in: header
+          name: Authorization
+          required: true
+          type: string
+          description: JWT authorization token in the format "Bearer <token>"
+        - in: body
+          name: body
+          description: Member details
+          required: true
+          schema:
+            type: object
+            properties:
+              accountId:
+                type: number
+                description: Account ID
+              firstName:
+                type: string
+                description: First name of the family member
+              lastName:
+                type: string
+                description: Last name of the family member
+              dateOfBirth:
+                type: string
+                format: date
+                description: Date of birth of the family member (YYYY-MM-DD)
+              email:
+                type: string
+                format: email
+                description: Email address of the family member
+              phoneNumber:
+                type: string
+                description: Phone number of the family member
+                pattern: "^[0-9]{10}$"
+      responses:
+        200:
+          description: Family member added successfully
+          schema:
+            type: object
+            properties:
+              user:
+                type: object
+                description: User object of the added family member
+        400:
+          description: Invalid input or family member already exists
+        401:
+          description: Unauthorized
+        404:
+          description: Account not found
+        500:
+          description: Internal server error

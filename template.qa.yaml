@@ -1,0 +1,117 @@
+# https://github.com/awslabs/serverless-application-model/blob/develop/versions/2016-10-31.md
+AWSTemplateFormatVersion: '2010-09-09'
+Transform: AWS::Serverless-2016-10-31
+Description: Gravity Haus FAAS
+Parameters:
+    JwtSecretKey:
+        Description: 'Key to encode jwt'
+        Type: 'String'
+    MysqlDatabase:
+        Description: 'Name of mysql database'
+        Type: 'String'
+    MysqlHost:
+        Description: 'mysql host'
+        Type: 'String'
+    MysqlPassword:
+        Description: 'mysql password'
+        Type: 'String'
+    MysqlUser:
+        Description: 'mysql user'
+        Type: 'String'
+    MysqlPort:
+        Description: 'port for database'
+        Default: '3305'
+        Type: 'String'
+    Env:
+        Description: 'The env to run the stack in. "dev" "stage" "prod" | gh-auth/<Env>'
+        Default: 'dev'
+        Type: 'String'
+    SecretName:
+        Description: 'The name of the secret in aws secrets manager <SecretName>/dev'
+        Default: 'gh-auth'
+        Type: 'String'
+    SlackApiKey:
+        Description: 'Api key to the slack account'
+        Type: 'String'
+
+Globals:
+  Api:
+    Cors:
+      AllowMethods: "'*'"
+      AllowHeaders: "'Content-Type, X-Amz-Date, Authorization, X-Api-Key, x-requested-with'"
+      AllowOrigin: "'*'"
+  Function:
+    Timeout: 600
+    MemorySize: 512
+    Layers:
+      - !Ref RuntimeDependenciesLayer
+    Environment: 
+        Variables:
+            JWT_SECRET_KEY: !Ref JwtSecretKey
+            MYSQL_DATABASE: !Ref MysqlDatabase
+            MYSQL_HOST: !Ref MysqlHost
+            MYSQL_PASSWORD: !Ref MysqlPassword
+            MYSQL_USER: !Ref MysqlUser
+            MYSQL_PORT: !Ref MysqlPort
+            ENV: !Ref Env
+            SECRET_NAME: !Ref SecretName
+            SLACK_API_KEY: !Ref SlackApiKey
+
+Resources:
+  RuntimeDependenciesLayer:
+    Type: AWS::Serverless::LayerVersion
+    Metadata:
+      BuildMethod: makefile
+    Properties:
+      Description: Runtime dependencies for Lambdas
+      ContentUri: dist/
+      CompatibleRuntimes:
+        - nodejs16.x
+      RetentionPolicy: Retain
+
+  FunctionLayer:
+    Type: AWS::Serverless::LayerVersion
+    Metadata:
+      BuildMethod: makefile
+    Properties:
+      Description: Common layer
+      ContentUri: dist/
+      CompatibleRuntimes:
+        - nodejs16.x
+      RetentionPolicy: Retain
+
+  FaasFunction:
+    Type: AWS::Serverless::Function # More info about Function Resource: https://github.com/awslabs/serverless-application-model/blob/master/versions/2016-10-31.md#awsserverlessfunction
+    Metadata:
+      BuildMethod: makefile
+    Properties:
+      MemorySize: 2560
+      CodeUri: dist/
+      Handler: dist/lambdas/faas/faas.lambdaHandler
+      Runtime: nodejs16.x
+      Policies:
+        - AWSSecretsManagerGetSecretValuePolicy:
+            SecretArn: "*"
+        - SNSPublishMessagePolicy:
+            TopicName: "*"
+      Layers:
+        - !Ref FunctionLayer
+      Architectures:
+        - x86_64
+      Events:
+        Base:
+          Type: Api # More info about API Event Source: https://github.com/awslabs/serverless-application-model/blob/master/versions/2016-10-31.md#api
+          Properties:
+            Path: /faas/
+            Method: any
+        Others:
+          Type: Api
+          Properties:
+            Method: any
+            Path: /faas/{proxy+}
+
+
+Outputs:
+  QaEndpoint:
+    Description: "API QA endpoint"
+    Value: !Sub "https://${ServerlessRestApi}.execute-api.us-east-2.amazonaws.com/Prod/faas/"

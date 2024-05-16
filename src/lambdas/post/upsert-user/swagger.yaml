@@ -1,0 +1,97 @@
+swagger: '2.0'
+info:
+  version: '1.0.0'
+  title: "Gravity Haus Auth Api Documentation"
+host: 57kiuv9e1j.execute-api.us-east-2.amazonaws.com
+basePath: /Prod
+schemes:
+  - https
+paths:
+  /upsert-user:
+    post:
+      summary: Create or update a user
+      produces:
+        - application/json
+      parameters:
+        - in: header
+          name: Authorization
+          required: true
+          type: string
+          description: JWT token for user authentication
+        - in: body
+          name: body
+          description: User data to create or update
+          required: true
+          schema:
+            type: object
+            properties:
+              id:
+                type: string
+                description: User ID
+              email:
+                type: string
+                description: User email
+              password:
+                type: string
+                description: User password
+              roleId:
+                type: integer
+                description: User role ID
+              lastActivityDate:
+                type: string
+                format: date-time
+                description: User last activity date
+            required:
+              - id
+      responses:
+        200:
+          description: OK
+          schema:
+            type: object
+            properties:
+              user:
+                type: object
+                properties:
+                  uuid:
+                    type: string
+                    description: User UUID
+                  email:
+                    type: string
+                    description: User email
+                  password:
+                    type: string
+                    description: User password (masked with asterisks)
+                  roleId:
+                    type: integer
+                    description: User role ID
+                  lastActivityDate:
+                    type: string
+                    format: date-time
+                    description: User last activity date
+        401:
+          description: Unauthorized
+        404:
+          description: Not Found
+          schema:
+            type: object
+            properties:
+              error:
+                type: object
+                properties:
+                  message:
+                    type: string
+                    description: Error message
+                  email:
+                    type: string
+                    description: User email
+                  password:
+                    type: string
+                    description: User password
+        500:
+          description: Internal Server Error
+          schema:
+            type: object
+            properties:
+              error:
+                type: object
+                description: Error object
