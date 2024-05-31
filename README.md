@@ -230,3 +230,4 @@ Use the `gh-cli` to generate new `crons`,  `functions`, and `models`
 [evilmartians lambda typescript](https://evilmartians.com/chronicles/serverless-typescript-a-complete-setup-for-aws-sam-lambda)
 
 [Delete deployed lambda stack](https://docs.aws.amazon.com/serverless-application-model/latest/developerguide/sam-cli-command-reference-sam-delete.html)
+
