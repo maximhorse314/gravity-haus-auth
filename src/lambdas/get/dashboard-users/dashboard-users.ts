@@ -17,6 +17,7 @@ import getAccountHolder from '../../post/change-membership/utils/get-account-hol
 import cleanEmail from '@gravity-haus/gh-common/dist/utils/clean-email/clean-email';
 import { getStripeAccountOwner } from '../../../utils/get-stripe-account-owner/get-stripe-account-owner';
 
+
 const getAllUsers = async (): Promise<User> => {
   const users = await User.findAll({
     order: [['id', 'DESC']],
