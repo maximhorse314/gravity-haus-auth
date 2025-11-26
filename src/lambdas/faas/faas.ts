@@ -10,6 +10,7 @@ import { response } from '@gravity-haus/gh-common/dist/faas/response';
  * @returns {Object} object - API Gateway Lambda Proxy Output Format
  *
  */
+
 export const lambdaHandler = async (event: APIGatewayProxyEvent): Promise<APIGatewayProxyResult> => {
   try {
     const result = await lazyLoad(event);
